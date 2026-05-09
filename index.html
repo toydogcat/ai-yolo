@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YOLOv8 AI Real-Time Object Detection | 智慧物件偵測平台</title>
+  
+  <!-- Premium Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="/src/style.css">
+</head>
+<body>
+  <!-- Header App Bar -->
+  <header class="app-header">
+    <div class="header-logo-container">
+      <div class="glowing-orb"></div>
+      <span class="header-logo-text">ANTIGRAVITY</span>
+      <span class="header-logo-divider">/</span>
+      <h1 class="header-title">YOLO AI Object Detection</h1>
+    </div>
+    <div class="header-badge">
+      <span class="pulse-indicator"></span>
+      <span id="backend-text">Detecting Acceleration...</span>
+    </div>
+  </header>
+
+  <!-- Main Application Workspace -->
+  <main class="app-workspace">
+    <!-- Sidebar Panel: Controls & Analysis -->
+    <aside class="workspace-sidebar">
+      <div class="sidebar-section">
+        <h2 class="section-title">Model Settings</h2>
+        
+        <div class="control-group">
+          <label for="model-select" class="control-label">Model Architecture</label>
+          <div class="select-wrapper">
+            <select id="model-select" class="custom-select">
+              <option value="models/custom_model" selected>Custom Local Model (public/models/)</option>
+              <option value="Xenova/yolov8n">YOLOv8 Nano (Fastest)</option>
+              <option value="Xenova/yolov8s">YOLOv8 Small (Accurate)</option>
+              <option value="Xenova/detr-resnet-50">DETR ResNet-50</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="control-group">
+          <div class="slider-header">
+            <label for="threshold-range" class="control-label">Confidence Threshold</label>
+            <span id="threshold-val" class="slider-badge">25%</span>
+          </div>
+          <input type="range" id="threshold-range" class="custom-slider" min="5" max="95" value="25" step="5">
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <h2 class="section-title">Performance Stats</h2>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="stat-label">Model Status</span>
+            <span id="model-state" class="stat-value text-glow-indigo">Initializing...</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Inference Time</span>
+            <span id="inference-time" class="stat-value">0 ms</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Detected Objects</span>
+            <span id="detected-count" class="stat-value text-glow-green">0</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-section list-section">
+        <div class="section-header-row">
+          <h2 class="section-title">Detected Classes</h2>
+          <input type="text" id="search-input" class="search-input" placeholder="Filter classes...">
+        </div>
+        <div id="results-list" class="results-list-container">
+          <div id="results-empty" class="results-empty-state">
+            <div class="empty-icon">🔍</div>
+            <p>No objects detected yet. Drag an image to start.</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Board: Image Area & Interactions -->
+    <section class="workspace-viewport">
+      <!-- Interactive Drop Zone -->
+      <div id="dropzone" class="dropzone-container">
+        <div class="dropzone-glow-container">
+          <div class="dropzone-glow"></div>
+        </div>
+        <div class="dropzone-content">
+          <div class="upload-icon-wrapper">
+            <svg class="upload-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <h3 class="upload-title">Drop Your Image Here</h3>
+          <p class="upload-description">Supports JPEG, PNG, WEBP. Runs completely client-side in your browser.</p>
+          <label for="file-upload" class="upload-btn">
+            Browse Files
+            <input type="file" id="file-upload" accept="image/*" class="hidden">
+          </label>
+        </div>
+      </div>
+
+      <!-- Live Preview Container -->
+      <div id="preview-container" class="preview-container hidden">
+        <div class="preview-stage">
+          <img id="image-element" class="preview-image" alt="Detection Preview">
+          <canvas id="canvas-overlay" class="canvas-overlay"></canvas>
+        </div>
+        <div class="preview-actions">
+          <button id="btn-reset" class="action-btn btn-secondary">
+            <svg class="btn-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            Clear Image
+          </button>
+          <button id="btn-reprocess" class="action-btn btn-primary">
+            <svg class="btn-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 1121.21 8H17m0 0V5" />
+            </svg>
+            Run Detection
+          </button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Download & Loading Progress Overlay -->
+  <div id="progress-overlay" class="progress-overlay hidden">
+    <div class="progress-box">
+      <div class="loading-spinner"></div>
+      <h3 class="progress-title">Downloading Deep Learning Model</h3>
+      <p id="progress-filename" class="progress-filename">Fetching shards...</p>
+      <div class="progress-bar-container">
+        <div id="progress-bar" class="progress-bar" style="width: 0%"></div>
+      </div>
+      <div class="progress-stats">
+        <span id="progress-percent" class="progress-percent">0%</span>
+        <span id="progress-bytes" class="progress-bytes">0 MB / 0 MB</span>
+      </div>
+      <p class="progress-footnote">This is a one-time download. Subsequent detections are instant and run 100% locally.</p>
+    </div>
+  </div>
+
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>

@@ -216,3 +216,19 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# Vite / JS Frontend
+node_modules/
+dist/
+dist-ssr/
+*.local
+
+# YOLO / Python Training
+runs/
+*.pt
+*.onnx
+!public/**/*.onnx
+datasets/
+python/models/
+
+
