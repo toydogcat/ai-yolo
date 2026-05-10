@@ -15,16 +15,34 @@ env.allowLocalModels = true;
  */
 async function getDetector(modelName, localModelPath = '/ai-yolo/') {
   if (currentModelName === modelName) {
-    if (modelName.startsWith('models/')) return { type: 'custom', session: customSession, config: customConfig };
+    if (modelName.startsWith('models/') || modelName.startsWith('hf:')) return { type: 'custom', session: customSession, config: customConfig };
     return { type: 'transformers', detector };
   }
 
   self.postMessage({ type: 'status', data: 'loading', model: modelName });
 
-  if (modelName.startsWith('models/')) {
-    // 1. Custom YOLOv8/YOLOv12 Direct ONNX Inference
-    const modelUrl = `${localModelPath}models/custom_model/model.onnx`;
-    const configUrl = `${localModelPath}models/custom_model/config.json`;
+  if (modelName.startsWith('models/') || modelName.startsWith('hf:')) {
+    // 1. Custom Direct ONNX Inference (Local or Hugging Face)
+    let modelUrl, configUrl;
+
+    if (modelName.startsWith('hf:')) {
+      // Format: hf:username/repo_name/subfolder
+      // Example: hf:tobytoy/yolo_base_home/yolo26l-pose
+      const rawPath = modelName.substring(3); // remove 'hf:'
+      const parts = rawPath.split('/');
+      const username = parts[0];
+      const repo = parts[1];
+      const subfolder = parts.slice(2).join('/');
+      
+      const hfBase = `https://huggingface.co/${username}/${repo}/resolve/main`;
+      modelUrl = `${hfBase}/${subfolder}/model.onnx`;
+      configUrl = `${hfBase}/${subfolder}/config.json`;
+    } else {
+      // Local resolution
+      const basePath = localModelPath.endsWith('/') ? localModelPath : localModelPath + '/';
+      modelUrl = `${basePath}${modelName}/model.onnx`;
+      configUrl = `${basePath}${modelName}/config.json`;
+    }
 
     try {
       // Fetch labels configuration
@@ -95,9 +113,12 @@ function preprocessYOLO(pixels, width, height) {
  * Outputs shape: [1, 84, 8400]
  */
 function postprocessYOLO(outputTensor, threshold, originalWidth, originalHeight, id2label) {
-  const data = outputTensor.data; // Float32Array
-  const numCandidates = 8400;
-  const numClasses = 80;
+  const data = outputTensor.data;
+  const dims = outputTensor.dims; // Typically [1, 84, 8400]
+  
+  const numCandidates = dims[2];
+  const numClasses = dims[1] - 4; 
+  
   const candidates = [];
 
   for (let i = 0; i < numCandidates; i++) {
@@ -141,6 +162,62 @@ function postprocessYOLO(outputTensor, threshold, originalWidth, originalHeight,
 
   // Non-Maximum Suppression (IoU Threshold = 0.45)
   return nms(candidates, 0.45);
+}
+
+/**
+ * Custom Postprocessing for End-to-End YOLO Pose
+ * Output shape is [1, 300, 57]
+ * Each entry has: [xmin, ymin, xmax, ymax, score, classId, kpt1_x, kpt1_y, kpt1_conf, ...]
+ */
+function postprocessYOLOPose(outputTensor, threshold, originalWidth, originalHeight, id2label) {
+  const data = outputTensor.data;
+  const dims = outputTensor.dims; // [1, 300, 57]
+  const numCandidates = dims[1];
+  const step = dims[2]; // 57
+  const candidates = [];
+
+  for (let i = 0; i < numCandidates; i++) {
+    const base = i * step;
+    const score = data[base + 4];
+    const classId = Math.round(data[base + 5]);
+
+    if (score > threshold) {
+      // Direct grid pixel coordinates (not normalized, range 0..640)
+      const xmin = data[base + 0] / 640 * originalWidth;
+      const ymin = data[base + 1] / 640 * originalHeight;
+      const xmax = data[base + 2] / 640 * originalWidth;
+      const ymax = data[base + 3] / 640 * originalHeight;
+
+      // Extract keypoints (17 pairs of x,y,conf)
+      const keypoints = [];
+      for (let k = 0; k < 17; k++) {
+        const kIdx = base + 6 + (k * 3);
+        const kx = data[kIdx] / 640 * originalWidth;
+        const ky = data[kIdx + 1] / 640 * originalHeight;
+        const kConf = data[kIdx + 2];
+        keypoints.push({
+          x: Math.round(kx),
+          y: Math.round(ky),
+          score: kConf
+        });
+      }
+
+      candidates.push({
+        score: score,
+        label: id2label[classId] || `class_${classId}`,
+        box: {
+          xmin: Math.max(0, Math.round(xmin)),
+          ymin: Math.max(0, Math.round(ymin)),
+          xmax: Math.min(originalWidth, Math.round(xmax)),
+          ymax: Math.min(originalHeight, Math.round(ymax))
+        },
+        keypoints: keypoints
+      });
+    }
+  }
+  // End-to-end architecture yields already sorted predictions without dense overlapping anchors; 
+  // NMS is handled internally during generation.
+  return candidates;
 }
 
 function nms(candidates, iouThreshold) {
@@ -212,14 +289,30 @@ self.addEventListener('message', async (event) => {
         const outputs = await activeModel.session.run(inputs);
         const outputTensor = outputs[activeModel.session.outputNames[0]];
 
-        // Run custom postprocessing with NMS
-        const results = postprocessYOLO(
-          outputTensor,
-          threshold,
-          width,
-          height,
-          activeModel.config.id2label
-        );
+        // Run suitable custom postprocessing based on output tensor shape
+        let results = [];
+        const outDims = outputTensor.dims;
+
+        // Detection task standard shape [1, ~84, 8400] OR Pose task shape [1, 300, 57]
+        if (outDims.length === 3 && outDims[2] === 57) {
+          // Pose Model
+          results = postprocessYOLOPose(
+            outputTensor,
+            threshold,
+            width,
+            height,
+            activeModel.config.id2label
+          );
+        } else {
+          // Standard Detection Model
+          results = postprocessYOLO(
+            outputTensor,
+            threshold,
+            width,
+            height,
+            activeModel.config.id2label
+          );
+        }
 
         const endTime = performance.now();
 

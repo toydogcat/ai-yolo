@@ -38,10 +38,19 @@
           <label for="model-select" class="control-label">Model Architecture</label>
           <div class="select-wrapper">
             <select id="model-select" class="custom-select">
-              <option value="models/custom_model" selected>Custom Local Model (public/models/)</option>
-              <option value="Xenova/yolov8n">YOLOv8 Nano (Fastest)</option>
-              <option value="Xenova/yolov8s">YOLOv8 Small (Accurate)</option>
-              <option value="Xenova/detr-resnet-50">DETR ResNet-50</option>
+              <optgroup label="☁️ Hugging Face Base Home">
+                <option value="hf:tobytoy/yolo_base_home/default/yolo26l-pose" selected>YOLO26l Pose (HF Remote)</option>
+                <option value="hf:tobytoy/yolo_base_home/default/yolo26m-pose">YOLO26m Pose (HF Remote)</option>
+                <option value="hf:tobytoy/yolo_base_home/default/yolo26s-pose">YOLO26s Pose (HF Remote)</option>
+                <option value="hf:tobytoy/yolo_base_home/default/yolo12x">YOLO12x Detect (HF Remote)</option>
+                <option value="hf:tobytoy/yolo_base_home/default/yolo12l">YOLO12l Detect (HF Remote)</option>
+                <option value="hf:tobytoy/yolo_base_home/default/yolo12m">YOLO12m Detect (HF Remote)</option>
+                <option value="hf:tobytoy/yolo_base_home/default/yolo12s">YOLO12s Detect (HF Remote)</option>
+                <option value="hf:tobytoy/yolo_base_home/default/yolo12n">YOLO12n Detect (HF Remote)</option>
+              </optgroup>
+              <optgroup label="📦 Transformers.js Built-in">
+                <option value="Xenova/yolov8n">YOLOv8 Nano</option>
+              </optgroup>
             </select>
           </div>
         </div>

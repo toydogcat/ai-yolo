@@ -40,7 +40,19 @@ let hoveredDetectionIndex = null;
 let downloadTrackers = {};
 let isModelReady = false;
 
-// 4. Utility: Get consistent vibrant distinct colors for each label class
+// 4. Pose Skeleton Constants
+const SKELETON_PAIRS = [
+  [0, 1], [0, 2], [1, 3], [2, 4], // Face
+  [5, 6],                         // Shoulders
+  [5, 7], [7, 9],                 // Left arm
+  [6, 8], [8, 10],                // Right arm
+  [5, 11], [6, 12],               // Torso sides
+  [11, 12],                       // Hips
+  [11, 13], [13, 15],             // Left leg
+  [12, 14], [14, 16]              // Right leg
+];
+
+// 5. Utility: Get consistent vibrant distinct colors for each label class
 const classColors = {};
 const vibrantColors = [
   '#6366f1', // Electric Indigo
@@ -220,6 +232,43 @@ function renderCanvas() {
     // Text label
     ctx.fillStyle = '#ffffff';
     ctx.fillText(labelText, x + 7, y - 20 > 0 ? y - 7 : y + 13);
+
+    // --- Pose Rendering ---
+    if (det.keypoints && det.keypoints.length > 0) {
+      const kpts = det.keypoints;
+
+      // 1. Draw Skeleton Lines
+      ctx.beginPath();
+      ctx.lineWidth = isHovered ? 4 : 2;
+      ctx.strokeStyle = color;
+      
+      SKELETON_PAIRS.forEach(([i, j]) => {
+        const kpA = kpts[i];
+        const kpB = kpts[j];
+        // Only draw if confident enough (> 0.3)
+        if (kpA && kpB && kpA.score > 0.3 && kpB.score > 0.3) {
+          ctx.moveTo(kpA.x * scaleX, kpA.y * scaleY);
+          ctx.lineTo(kpB.x * scaleX, kpB.y * scaleY);
+        }
+      });
+      ctx.stroke();
+
+      // 2. Draw Individual Keypoints
+      kpts.forEach((kp) => {
+        if (kp.score > 0.3) {
+          const kX = kp.x * scaleX;
+          const kY = kp.y * scaleY;
+
+          ctx.beginPath();
+          ctx.arc(kX, kY, isHovered ? 5 : 3, 0, 2 * Math.PI);
+          ctx.fillStyle = color;
+          ctx.fill();
+          ctx.strokeStyle = '#ffffff';
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
+      });
+    }
   });
 }
 
