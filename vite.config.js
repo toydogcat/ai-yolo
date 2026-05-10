@@ -5,10 +5,23 @@ export default defineConfig({
   server: {
     port: 5173,
     strictPort: false,
-    host: true
+    host: true,
+    headers: {
+      'Cross-Origin-Opener-Policy': 'same-origin',
+      'Cross-Origin-Embedder-Policy': 'require-corp'
+    }
   },
   worker: {
     format: 'es'
+  },
+  build: {
+    target: 'esnext',
+    rollupOptions: {
+      input: {
+        main: 'index.html',
+        ocr: 'ocr.html'
+      }
+    }
   }
 });
 

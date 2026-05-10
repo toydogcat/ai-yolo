@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ANTIGRAVITY | OCR AI Lab</title>
+  
+  <!-- Premium Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <link rel="stylesheet" href="/src/style.css">
+  
+  <style>
+    /* OCR specific text layer styles override */
+    .ocr-overlay-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+    .ocr-text-box {
+      position: absolute;
+      border: 1px solid rgba(16, 185, 129, 0.6);
+      background-color: rgba(16, 185, 129, 0.08);
+      color: transparent;
+      cursor: pointer;
+      user-select: all;
+      pointer-events: auto;
+      transition: all 0.2s ease;
+      font-family: var(--font-sans);
+    }
+    .ocr-text-box:hover {
+      background-color: rgba(16, 185, 129, 0.2);
+      border-color: #10b981;
+      box-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
+    }
+    .sidebar-link-item {
+      display: flex;
+      flex-direction: column;
+      padding: 1rem;
+      border-bottom: 1px solid var(--border-light);
+      background: transparent;
+      transition: var(--transition-smooth);
+      cursor: pointer;
+      gap: 0.25rem;
+    }
+    .sidebar-link-item:hover {
+      background: var(--bg-card-hover);
+    }
+    .sidebar-link-item .text-content {
+      font-family: var(--font-sans);
+      font-size: 0.85rem;
+      color: var(--text-primary);
+      word-break: break-word;
+    }
+    .sidebar-link-item .copy-hint {
+      font-size: 0.65rem;
+      color: var(--color-emerald);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .sidebar-link-item:hover .copy-hint {
+      opacity: 1;
+    }
+  </style>
+</head>
+<body>
+  <!-- Header App Bar -->
+  <header class="app-header">
+    <div class="header-logo-container">
+      <div class="glowing-orb" style="background: var(--color-emerald); box-shadow: 0 0 15px var(--color-emerald);"></div>
+      <span class="header-logo-text">ANTIGRAVITY</span>
+      <span class="header-logo-divider">/</span>
+      <h1 class="header-title">OCR Text Engine</h1>
+    </div>
+    
+    <nav style="display:flex; gap:1rem; margin-left:2rem;">
+      <a href="./index.html" style="color:rgba(255,255,255,0.7); text-decoration:none; padding: 6px 16px; font-weight:500; font-size:0.9rem;">🏠 Detect</a>
+      <a href="./ocr.html" style="background: rgba(255,255,255,0.1); color:white; text-decoration:none; padding: 6px 16px; border-radius: 20px; font-weight:500; font-size:0.9rem;">🔍 OCR</a>
+    </nav>
+
+    <div class="header-badge">
+      <span class="pulse-indicator" style="background-color: var(--color-emerald);"></span>
+      <span id="engine-state">Ready</span>
+    </div>
+  </header>
+
+  <!-- Main Application Workspace -->
+  <main class="app-workspace">
+    <!-- Sidebar Panel: Controls & Results -->
+    <aside class="workspace-sidebar">
+      <div class="sidebar-section">
+        <h2 class="section-title">OCR Engine Config</h2>
+        
+        <div class="control-group">
+          <label class="control-label">Model Architecture</label>
+          <div class="select-wrapper">
+            <select id="ocr-model-select" class="custom-select">
+              <option value="v3_balanced">PaddleOCR Mobile V3 (Balanced)</option>
+              <option value="v4_mobile">PaddleOCR Mobile V4 (High Accuracy)</option>
+              <option value="v4_server">PaddleOCR Server V4 (Maximum Precision)</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-section">
+        <h2 class="section-title">Performance Stats</h2>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="stat-label">Engine Status</span>
+            <span id="status-display" class="stat-value text-glow-green">Idle</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-label">Duration</span>
+            <span id="time-display" class="stat-value">-- ms</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="sidebar-section list-section">
+        <div class="section-header-row">
+          <h2 class="section-title">Extracted Text</h2>
+          <button id="copy-all-btn" style="background:rgba(255,255,255,0.05); border:1px solid var(--border-light); color:var(--text-secondary); border-radius:6px; padding:4px 8px; cursor:pointer; font-size:0.75rem; font-weight:600;">
+            Copy All
+          </button>
+        </div>
+        <div id="sidebar-results" class="results-list-container">
+          <div class="results-empty-state">
+            <div class="empty-icon">📄</div>
+            <p>No text extracted yet. Drag an image to analyze.</p>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- Main Viewport -->
+    <section class="workspace-viewport">
+      <!-- Drop Zone -->
+      <div id="dropzone" class="dropzone-container">
+        <div class="dropzone-glow-container">
+          <div class="dropzone-glow" style="background: radial-gradient(circle, rgba(16,185,129,0.15) 0%, rgba(16,185,129,0) 70%);"></div>
+        </div>
+        <div class="dropzone-content">
+          <div class="upload-icon-wrapper">
+            <svg class="upload-icon" style="color:var(--color-emerald)" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+            </svg>
+          </div>
+          <h3 class="upload-title">Drop Image Containing Text</h3>
+          <p class="upload-description">Instantly transcribe screenshots, documents, and handwritten notes entirely in your browser.</p>
+          <label for="file-input" class="upload-btn" style="background:var(--color-emerald); box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);">
+            Select File
+            <input type="file" id="file-input" accept="image/*" class="hidden">
+          </label>
+        </div>
+      </div>
+
+      <!-- Preview Stage -->
+      <div id="preview-container" class="preview-container hidden">
+        <div class="preview-stage">
+          <img id="image-preview" class="preview-image" alt="OCR Target">
+          <!-- Interactive Overlay for OCR boxes -->
+          <div id="ocr-overlay" class="ocr-overlay-container"></div>
+        </div>
+        <div class="preview-actions">
+          <button id="clear-btn" class="action-btn btn-secondary">
+            <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+            Clear
+          </button>
+          <button id="run-btn" class="action-btn btn-primary" style="background:var(--color-emerald); box-shadow: 0 4px 14px rgba(16, 185, 129, 0.3);">
+            <svg class="btn-icon" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            Extract Text
+          </button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- Main JS -->
+  <script type="module" src="/src/ocr.js"></script>
+</body>
+</html>
