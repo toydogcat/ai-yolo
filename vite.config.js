@@ -19,7 +19,8 @@ export default defineConfig({
     rollupOptions: {
       input: {
         main: 'index.html',
-        ocr: 'ocr.html'
+        ocr: 'ocr.html',
+        hand: 'hand.html'
       }
     }
   }
