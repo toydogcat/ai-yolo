@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Live Hand Pose Estimation</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --primary: #6366f1;
+      --primary-glow: rgba(99, 102, 241, 0.4);
+      --bg-color: #0f172a;
+      --panel-bg: rgba(30, 41, 59, 0.7);
+      --text: #f8fafc;
+      --accent: #10b981;
+    }
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+    header {
+      width: 100%;
+      padding: 2rem 0;
+      text-align: center;
+      background: linear-gradient(to bottom, rgba(15,23,42,0.9), rgba(15,23,42,0));
+      z-index: 10;
+    }
+    h1 {
+      font-size: 2.5rem;
+      font-weight: 800;
+      letter-spacing: -1px;
+      margin: 0;
+      background: linear-gradient(135deg, #fff 0%, #94a3b8 100%);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    .subtitle {
+      color: #94a3b8;
+      margin-top: 0.5rem;
+      font-size: 1.1rem;
+    }
+    main {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 2rem;
+      padding: 2rem;
+      width: 100%;
+      max-width: 1200px;
+    }
+    .controls {
+      display: flex;
+      gap: 1rem;
+      z-index: 5;
+    }
+    button {
+      background: var(--panel-bg);
+      color: white;
+      border: 1px solid rgba(255,255,255,0.1);
+      padding: 0.75rem 1.5rem;
+      border-radius: 12px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      backdrop-filter: blur(10px);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    button:hover:not(:disabled) {
+      background: var(--primary);
+      box-shadow: 0 0 15px var(--primary-glow);
+      transform: translateY(-2px);
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    .viewer-container {
+      position: relative;
+      width: 100%;
+      max-width: 640px;
+      aspect-ratio: 4/3;
+      border-radius: 24px;
+      overflow: hidden;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+      background: #000;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    #webcam {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: rotateY(180deg);
+    }
+    #output_canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      transform: rotateY(180deg);
+    }
+    .loading-overlay {
+      position: absolute;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.9);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      z-index: 20;
+      transition: opacity 0.5s ease;
+    }
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 3px solid rgba(255,255,255,0.1);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 1s linear infinite;
+      margin-bottom: 1rem;
+    }
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+    .status-badge {
+      position: absolute;
+      top: 1rem;
+      right: 1rem;
+      background: rgba(0,0,0,0.6);
+      padding: 0.4rem 0.8rem;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      backdrop-filter: blur(4px);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      border: 1px solid rgba(255,255,255,0.1);
+      z-index: 10;
+    }
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      background: #ef4444;
+      border-radius: 50%;
+      transition: background 0.3s;
+    }
+    .status-dot.active {
+      background: #10b981;
+      box-shadow: 0 0 8px #10b981;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Live Hand Pose Estimation</h1>
+    <p class="subtitle">Real-time 21 hand keypoints detection using Webcam</p>
+  </header>
+
+  <main>
+    <div class="viewer-container">
+      <div class="loading-overlay" id="loadingOverlay">
+        <div class="spinner"></div>
+        <span>Loading MediaPipe Model...</span>
+      </div>
+      
+      <div class="status-badge">
+        <div class="status-dot" id="statusDot"></div>
+        <span id="statusText">Idle</span>
+      </div>
+
+      <video id="webcam" autoplay playsinline></video>
+      <canvas id="output_canvas"></canvas>
+    </div>
+
+    <div class="controls">
+      <button id="webcamButton" disabled>
+        <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M23 7l-7 5 7 5V7z"/><rect x="1" y="5" width="15" height="14" rx="2" ry="2"/></svg>
+        Start Camera Stream
+      </button>
+    </div>
+  </main>
+
+  <script type="module" src="/src/hand-live.js"></script>
+</body>
+</html>

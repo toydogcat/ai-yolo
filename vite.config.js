@@ -20,7 +20,8 @@ export default defineConfig({
       input: {
         main: 'index.html',
         ocr: 'ocr.html',
-        hand: 'hand.html'
+        hand: 'hand.html',
+        'hand-live': 'hand-live.html'
       }
     }
   }
